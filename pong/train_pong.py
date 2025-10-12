@@ -115,7 +115,8 @@ LEARNING_RATE = 1e-4
 NUM_EPISODES = 10000
 
 # Setup environment
-env = gym.make("Pong-v5")
+# env = gym.make("Pong-v5")
+env = gym.make("ALE/Pong-v5")
 env = AtariWrapper(env)
 
 n_actions = env.action_space.n
