@@ -3,3 +3,6 @@ gymnasium[accept-rom-license]
 torch 
 torchvision 
 numpy
+Opencv-python
+gymnasium[classic-control]
+matplotlib

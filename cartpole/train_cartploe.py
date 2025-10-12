@@ -17,7 +17,7 @@ EPS_END = 0.05
 EPS_DECAY = 1000
 TAU = 0.005 # Soft update of target network
 LR = 1e-4
-NUM_EPISODES = 600
+NUM_EPISODES = 60
 
 # Set device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -114,8 +114,10 @@ def optimize_model():
     loss.backward()
     torch.nn.utils.clip_grad_value_(policy_net.parameters(), 100)
     optimizer.step()
+    return loss.item()
 
 # --- 4. Training Loop ---
+episode_rewards = []
 for i_episode in range(NUM_EPISODES):
     state, info = env.reset()
     state = torch.tensor(state, dtype=torch.float32, device=device).unsqueeze(0)
@@ -123,6 +125,8 @@ for i_episode in range(NUM_EPISODES):
     # In CartPole, the main loop is usually managed by steps, not just done flag
     # Let's track episode duration
     episode_duration = 0
+    total_episode_loss = 0
+    training_steps_in_episode = 0
     while True:
         action = select_action(state)
         observation, reward, terminated, truncated, _ = env.step(action.item())
@@ -137,7 +141,10 @@ for i_episode in range(NUM_EPISODES):
 
         memory.push(state, action, next_state, reward)
         state = next_state
-        optimize_model()
+        loss=optimize_model()
+        if loss is not None:
+            total_episode_loss += loss
+            training_steps_in_episode += 1
 
         # Soft update of the target network's weights
         target_net_state_dict = target_net.state_dict()
@@ -146,9 +153,33 @@ for i_episode in range(NUM_EPISODES):
             target_net_state_dict[key] = policy_net_state_dict[key]*TAU + target_net_state_dict[key]*(1-TAU)
         target_net.load_state_dict(target_net_state_dict)
 
+        # if done:
+        #     print(f"Episode {i_episode + 1}: Finished after {episode_duration} timesteps")
+        #     break
         if done:
-            print(f"Episode {i_episode + 1}: Finished after {episode_duration} timesteps")
+            episode_rewards.append(episode_duration)
+            avg_loss = total_episode_loss / training_steps_in_episode if training_steps_in_episode > 0 else 0
+            print(f"Episode {i_episode + 1}: Duration={episode_duration}, Avg Loss={avg_loss:.4f}")
             break
 
 print('Complete')
 env.close()
+
+torch.save(policy_net.state_dict(), 'cartpole_model.pth')
+print("Model Saved!")
+
+import matplotlib.pyplot as plt
+
+plt.figure(figsize=(10, 5))
+plt.title('Training Performance: Episode Duration over Time')
+plt.xlabel('Episode')
+plt.ylabel('Duration (timesteps)')
+plt.plot(episode_rewards)
+
+# Optional: Plot a smoothed average
+moving_avg = [np.mean(episode_rewards[i-100:i]) for i in range(100, len(episode_rewards))]
+plt.plot(range(100, len(episode_rewards)), moving_avg, label='100-episode moving average', color='red')
+plt.legend()
+
+plt.savefig('training_performance.png') # Save the plot as an image
+plt.show()
