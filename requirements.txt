@@ -6,3 +6,4 @@ numpy
 Opencv-python
 gymnasium[classic-control]
 matplotlib
+AutoROM
